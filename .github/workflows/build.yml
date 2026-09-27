@@ -34,12 +34,14 @@ jobs:
 
       - name: Copy assets into chroot includes
         run: |
+          mkdir -p config/includes.chroot/usr/share/backgrounds/jxos
+          mkdir -p config/includes.chroot/usr/share/jxos/logos
+          mkdir -p config/includes.chroot/usr/share/grub/themes/jxos
           cp assets/wallpaper-*.svg config/includes.chroot/usr/share/backgrounds/jxos/
           cp assets/wallpaperdefault.svg config/includes.chroot/usr/share/backgrounds/jxos/
           cp assets/logo-Logo.svg config/includes.chroot/usr/share/jxos/logos/
           cp assets/logo-LogoBold.svg config/includes.chroot/usr/share/jxos/logos/
           cp assets/about.svg config/includes.chroot/usr/share/jxos/
-          # Convert SVG wallpapers to PNG for XFCE/GRUB compatibility
           for svg in assets/wallpaper-*.svg assets/wallpaperdefault.svg; do
             base=$(basename "$svg" .svg)
             rsvg-convert -w 1920 -h 1080 "$svg" -o "config/includes.chroot/usr/share/backgrounds/jxos/${base}.png"
