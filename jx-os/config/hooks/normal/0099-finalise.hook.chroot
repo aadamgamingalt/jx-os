@@ -1,0 +1,63 @@
+#!/bin/bash
+set -e
+
+echo "[JX-OS] Finalising permissions and cleanup..."
+
+# Make all hooks executable (just in case)
+chmod +x /usr/local/bin/jxos-* 2>/dev/null || true
+
+# Ensure skel permissions are correct
+chmod 700 /etc/skel/.mozilla 2>/dev/null || true
+chmod 600 /etc/skel/.mozilla/firefox/jxos.default/user.js 2>/dev/null || true
+
+# Lock down /etc/resolv.conf (already done in harden hook, just verify)
+chattr +i /etc/resolv.conf 2>/dev/null || true
+
+# Disable core dumps
+echo "* hard core 0" >> /etc/security/limits.conf
+echo "* soft core 0" >> /etc/security/limits.conf
+cat > /etc/sysctl.d/99-jxos-nodump.conf << 'EOF'
+kernel.core_pattern=|/bin/false
+fs.suid_dumpable=0
+EOF
+
+# Set umask to 027 (more restrictive)
+echo "umask 027" >> /etc/profile
+
+# SSH: harden config (disabled by default, opt-in)
+if [ -f /etc/ssh/sshd_config ]; then
+  cat > /etc/ssh/sshd_config << 'SSHEOF'
+# JX-OS SSH hardening (service disabled by default)
+Port 22
+Protocol 2
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
+PermitRootLogin no
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+UsePAM yes
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding no
+PrintMotd no
+SSHEOF
+  # Keep SSH disabled by default - user enables if needed
+  systemctl disable ssh 2>/dev/null || true
+fi
+
+# Remove leftover build artifacts
+apt-get autoremove -y
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+rm -rf /tmp/*
+rm -rf /var/tmp/*
+
+# Wipe bash history from build environment
+history -c 2>/dev/null || true
+unset HISTFILE
+
+echo "[JX-OS] Finalisation complete."
+echo "[JX-OS] Build done. ISO is ready."

@@ -1,0 +1,297 @@
+#!/bin/bash
+set -e
+
+echo "[JX-OS] Running hardening hook..."
+
+# ============================================================
+# 1. FIREWALL - strict default deny
+# ============================================================
+ufw --force reset
+ufw default deny incoming
+ufw default deny outgoing
+ufw allow out 53    # DNS
+ufw allow out 80    # HTTP
+ufw allow out 443   # HTTPS
+ufw allow out 9001  # Tor OR port
+ufw allow out 9030  # Tor dir port
+ufw allow out 51820 # WireGuard
+ufw --force enable
+
+# ============================================================
+# 2. MAC ADDRESS RANDOMISATION
+# ============================================================
+cat > /etc/NetworkManager/conf.d/mac-randomise.conf << 'EOF'
+[device]
+wifi.scan-rand-mac-address=yes
+
+[connection]
+ethernet.cloned-mac-address=random
+wifi.cloned-mac-address=random
+connection.stable-id=${CONNECTION}/${BOOT}
+EOF
+
+# ============================================================
+# 3. DNS OVER HTTPS (dnscrypt-proxy)
+# ============================================================
+cat > /etc/dnscrypt-proxy/dnscrypt-proxy.toml << 'EOF'
+listen_addresses = ['127.0.0.1:53']
+max_clients = 250
+ipv4_servers = true
+ipv6_servers = false
+dnscrypt_servers = true
+doh_servers = true
+require_nolog = true
+require_nofilter = false
+require_dnssec = true
+force_tcp = false
+timeout = 5000
+keepalive = 30
+log_level = 0
+use_syslog = true
+cert_refresh_delay = 240
+dnscrypt_ephemeral_keys = true
+tls_disable_session_tickets = true
+bootstrap_resolvers = ['9.9.9.9:53', '8.8.8.8:53']
+ignore_system_dns = true
+netprobe_timeout = 60
+log_files_max_size = 10
+log_files_max_age = 7
+log_files_max_backups = 1
+block_ipv6 = false
+block_unqualified = true
+block_undelegated = true
+reject_ttl = 600
+
+[sources]
+  [sources.public-resolvers]
+  urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md']
+  cache_file = '/var/cache/dnscrypt-proxy/public-resolvers.md'
+  minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+  refresh_delay = 72
+  prefix = ''
+EOF
+
+# Point system DNS at dnscrypt-proxy
+cat > /etc/resolv.conf << 'EOF'
+nameserver 127.0.0.1
+options edns0
+EOF
+chattr +i /etc/resolv.conf
+
+systemctl enable dnscrypt-proxy
+
+# ============================================================
+# 4. TOR CONFIGURATION
+# ============================================================
+cat > /etc/tor/torrc << 'EOF'
+SocksPort 9050
+SocksPolicy accept 127.0.0.1
+Log notice file /var/log/tor/notices.log
+VirtualAddrNetworkIPv4 10.192.0.0/10
+AutomapHostsOnResolve 1
+TransPort 9040
+DNSPort 5353
+ExcludeExitNodes {??}
+StrictNodes 1
+EOF
+
+# ============================================================
+# 5. KERNEL HARDENING (sysctl)
+# ============================================================
+cat > /etc/sysctl.d/99-jxos-harden.conf << 'EOF'
+# Network hardening
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_rfc1337 = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.default.accept_source_route = 0
+net.ipv6.conf.all.accept_source_route = 0
+net.ipv6.conf.default.accept_source_route = 0
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+
+# Kernel hardening
+kernel.kptr_restrict = 2
+kernel.dmesg_restrict = 1
+kernel.printk = 3 3 3 3
+kernel.unprivileged_bpf_disabled = 1
+net.core.bpf_jit_harden = 2
+kernel.yama.ptrace_scope = 2
+vm.unprivileged_userfaultfd = 0
+kernel.kexec_load_disabled = 1
+kernel.sysrq = 4
+kernel.unprivileged_userns_clone = 0
+
+# Memory hardening
+vm.mmap_rnd_bits = 32
+vm.mmap_rnd_compat_bits = 16
+
+# Disable swap (privacy)
+vm.swappiness = 0
+EOF
+
+# ============================================================
+# 6. DISABLE UNNECESSARY KERNEL MODULES
+# ============================================================
+cat > /etc/modprobe.d/jxos-blacklist.conf << 'EOF'
+# Bluetooth
+blacklist bluetooth
+blacklist btusb
+blacklist bnep
+blacklist rfcomm
+
+# Webcam (uncomment to disable)
+# blacklist uvcvideo
+
+# Firewire (DMA attack vector)
+blacklist firewire-core
+blacklist firewire-ohci
+blacklist firewire-sbp2
+
+# Thunderbolt (DMA attack vector)
+blacklist thunderbolt
+
+# Rare filesystems (attack surface)
+blacklist cramfs
+blacklist freevxfs
+blacklist jffs2
+blacklist hfs
+blacklist hfsplus
+blacklist udf
+
+# Uncommon network protocols
+blacklist dccp
+blacklist sctp
+blacklist rds
+blacklist tipc
+blacklist n-hdlc
+blacklist ax25
+blacklist netrom
+blacklist x25
+blacklist rose
+blacklist decnet
+blacklist econet
+blacklist af_802154
+blacklist ipx
+blacklist appletalk
+blacklist psnap
+blacklist p8023
+blacklist llc
+blacklist p8022
+EOF
+
+# ============================================================
+# 7. USBGUARD - block unknown USB devices
+# ============================================================
+cat > /etc/usbguard/usbguard-daemon.conf << 'EOF'
+RuleFile=/etc/usbguard/rules.conf
+ImplicitPolicyTarget=block
+PresentDevicePolicy=apply-policy
+PresentControllerPolicy=keep
+InsertedDevicePolicy=apply-policy
+RestoreControllerDeviceState=false
+DeviceManagerBackend=uevent
+IPCAllowedUsers=root jxos
+IPCAllowedGroups=plugdev
+DeviceRulesWithPort=false
+AuditBackend=FileAudit
+AuditFilePath=/var/log/usbguard/usbguard-audit.log
+EOF
+
+# ============================================================
+# 8. HOSTNAME RANDOMISATION SERVICE
+# ============================================================
+cat > /usr/local/bin/jxos-randomise-hostname << 'EOF'
+#!/bin/bash
+RANDOM_HOST="jxos-$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 8 | head -n 1)"
+hostnamectl set-hostname "$RANDOM_HOST"
+EOF
+chmod +x /usr/local/bin/jxos-randomise-hostname
+
+cat > /etc/systemd/system/jxos-hostname-randomise.service << 'EOF'
+[Unit]
+Description=JX-OS Hostname Randomiser
+After=network.target
+Before=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/jxos-randomise-hostname
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable jxos-hostname-randomise
+
+# ============================================================
+# 9. SCREEN LOCK - auto lock after 3 minutes
+# ============================================================
+mkdir -p /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml
+cat > /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-screensaver.xml << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-screensaver" version="1.0">
+  <property name="saver" type="empty">
+    <property name="enabled" type="bool" value="true"/>
+    <property name="mode" type="int" value="1"/>
+    <property name="idle-activation" type="empty">
+      <property name="enabled" type="bool" value="true"/>
+      <property name="delay" type="int" value="3"/>
+    </property>
+  </property>
+  <property name="lock" type="empty">
+    <property name="enabled" type="bool" value="true"/>
+    <property name="saver-activation" type="empty">
+      <property name="enabled" type="bool" value="true"/>
+      <property name="delay" type="int" value="0"/>
+    </property>
+  </property>
+</channel>
+EOF
+
+# ============================================================
+# 10. APPARMOR
+# ============================================================
+systemctl enable apparmor
+
+# ============================================================
+# 11. REMOVE TELEMETRY / REPORTING PACKAGES
+# ============================================================
+apt-get purge -y \
+  popularity-contest \
+  apport \
+  whoopsie \
+  ubuntu-report \
+  2>/dev/null || true
+
+# ============================================================
+# 12. TIMEZONE TO UTC (anonymity)
+# ============================================================
+timedatectl set-timezone UTC 2>/dev/null || ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+
+# ============================================================
+# 13. FAIL2BAN
+# ============================================================
+cat > /etc/fail2ban/jail.local << 'EOF'
+[DEFAULT]
+bantime  = 3600
+findtime = 600
+maxretry = 3
+
+[sshd]
+enabled = true
+EOF
+systemctl enable fail2ban
+
+echo "[JX-OS] Hardening complete."

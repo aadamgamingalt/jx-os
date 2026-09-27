@@ -1,0 +1,132 @@
+#!/bin/bash
+set -e
+
+echo "[JX-OS] Installing GRUB theme..."
+
+THEME_DIR="/usr/share/grub/themes/jxos"
+mkdir -p "$THEME_DIR"
+
+# ============================================================
+# GRUB THEME.TXT
+# ============================================================
+cat > "$THEME_DIR/theme.txt" << 'EOF'
+# JX-OS GRUB Theme
+
+desktop-color: "#0d0d14"
+desktop-image: "background.png"
+title-color: "#00ff91"
+title-font: "JetBrains Mono Bold 16"
+message-color: "#8888a0"
+message-bg-color: "#111118"
+terminal-box: "terminal_box_*.png"
+terminal-font: "JetBrains Mono Regular 12"
+
++ boot_menu {
+  left = 25%
+  top = 35%
+  width = 50%
+  height = 35%
+  item_color = "#8888a0"
+  selected_item_color = "#00ff91"
+  item_font = "JetBrains Mono Regular 13"
+  selected_item_font = "JetBrains Mono Bold 13"
+  icon_width = 0
+  icon_height = 0
+  item_height = 28
+  item_padding = 8
+  item_spacing = 2
+  selected_item_pixmap_style = "select_*.png"
+  scrollbar = true
+  scrollbar_width = 4
+  scrollbar_thumb = "scrollbar_thumb_*.png"
+}
+
++ label {
+  top = 15%
+  left = 50%-80
+  width = 160
+  height = 60
+  text = "JX-OS"
+  font = "JetBrains Mono Bold 28"
+  color = "#ffffff"
+  align = "center"
+}
+
++ label {
+  top = 22%
+  left = 50%-120
+  width = 240
+  height = 20
+  text = "Voidagon Studios"
+  font = "JetBrains Mono Regular 11"
+  color = "#8888a0"
+  align = "center"
+}
+
++ progress_bar {
+  id = "__timeout__"
+  left = 25%
+  top = 80%
+  width = 50%
+  height = 4
+  bg_color = "#2a2a38"
+  fg_color = "#00ff91"
+  border_color = "#2a2a38"
+}
+
++ label {
+  id = "__timeout__"
+  top = 83%
+  left = 25%
+  width = 50%
+  height = 20
+  align = "center"
+  color = "#8888a0"
+  font = "JetBrains Mono Regular 10"
+  text = "Booting in %d seconds..."
+}
+EOF
+
+# ============================================================
+# GENERATE GRUB BACKGROUND from wallpaper PNG (copied by CI)
+# Logo is already placed at $THEME_DIR/logo.png by CI step
+# ============================================================
+if [ -f "$THEME_DIR/logo.png" ]; then
+  # Create a minimal background using ImageMagick
+  convert -size 1920x1080 \
+    gradient:"#0d0d14-#111118" \
+    "$THEME_DIR/background.png" 2>/dev/null || \
+    cp /usr/share/backgrounds/jxos/wallpaperdefault.png "$THEME_DIR/background.png" 2>/dev/null || true
+fi
+
+# Placeholder select highlight PNGs (solid colour bars)
+for size in "c" "e" "n" "ne" "nw" "s" "se" "sw" "w"; do
+  convert -size 4x4 xc:"#00ff9120" "$THEME_DIR/select_${size}.png" 2>/dev/null || true
+done
+
+for size in "c" "e" "n" "ne" "nw" "s" "se" "sw" "w"; do
+  convert -size 4x4 xc:"#2a2a38" "$THEME_DIR/terminal_box_${size}.png" 2>/dev/null || true
+done
+
+convert -size 4x8 xc:"#00ff91" "$THEME_DIR/scrollbar_thumb_c.png" 2>/dev/null || true
+
+# ============================================================
+# GRUB DEFAULT CONFIG
+# ============================================================
+cat > /etc/default/grub << 'EOF'
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="JX-OS"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash apparmor=1 security=apparmor loglevel=0"
+GRUB_CMDLINE_LINUX=""
+GRUB_TERMINAL_OUTPUT="gfxterm"
+GRUB_GFXMODE="1920x1080,1280x720,auto"
+GRUB_GFXPAYLOAD_LINUX="keep"
+GRUB_THEME="/usr/share/grub/themes/jxos/theme.txt"
+GRUB_BACKGROUND="/usr/share/grub/themes/jxos/background.png"
+GRUB_DISABLE_OS_PROBER=false
+EOF
+
+update-grub 2>/dev/null || true
+
+echo "[JX-OS] GRUB theme installed."

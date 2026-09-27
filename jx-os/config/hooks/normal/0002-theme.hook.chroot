@@ -1,0 +1,379 @@
+#!/bin/bash
+set -e
+
+echo "[JX-OS] Applying XFCE theme..."
+
+# ============================================================
+# GTK THEME - dark base matching JX-OS palette
+# ============================================================
+mkdir -p /usr/share/themes/JX-OS/gtk-3.0
+mkdir -p /usr/share/themes/JX-OS/gtk-2.0
+
+cat > /usr/share/themes/JX-OS/gtk-3.0/gtk.css << 'EOF'
+/* JX-OS GTK3 Theme
+ *
+ * Design intent:
+ *   One bold accent (#00ff91) used sparingly — focus rings,
+ *   active states, the clock. Everything else is dark neutrals
+ *   with subtle borders. Rounded corners (8px) on interactive
+ *   elements; flat panels and trays stay square.
+ *
+ * Palette:
+ *   #0d0d14  bg        — deepest background
+ *   #111118  surface   — cards, dialogs, sidebars
+ *   #1a1a26  elevated  — inputs, inactive buttons
+ *   #2a2a38  border    — all borders and dividers
+ *   #00ff91  accent    — focus, selection, active
+ *   #8888a0  muted     — secondary text, placeholders
+ *   #ffffff  text      — primary text
+ */
+
+@define-color bg_color      #0d0d14;
+@define-color surface_color #111118;
+@define-color elevated_color #1a1a26;
+@define-color border_color  #2a2a38;
+@define-color accent_color  #00ff91;
+@define-color muted_color   #8888a0;
+@define-color text_color    #ffffff;
+
+/* ── Reset ─────────────────────────────────────────────── */
+* { -gtk-icon-style: regular; outline: none; }
+
+/* ── Base ───────────────────────────────────────────────── */
+window, .background, .app-notification {
+  background-color: @bg_color;
+  color: @text_color;
+}
+
+/* ── Headerbars (client-side decoration) ──────────────── */
+headerbar, .titlebar {
+  background: @surface_color;
+  border-bottom: 1px solid @border_color;
+  color: @text_color;
+  padding: 0 8px;
+  min-height: 36px;
+  box-shadow: none;
+}
+headerbar .title { font-weight: 600; }
+headerbar .subtitle { color: @muted_color; font-size: 0.8em; }
+
+/* ── Sidebars / panes ─────────────────────────────────── */
+.sidebar, placessidebar, .left-panel {
+  background-color: @surface_color;
+  border-right: 1px solid @border_color;
+}
+.sidebar row, placessidebar row {
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: @muted_color;
+}
+.sidebar row:selected, placessidebar row:selected {
+  background-color: alpha(@accent_color, 0.1);
+  color: @accent_color;
+}
+.sidebar row:hover, placessidebar row:hover {
+  background-color: @elevated_color;
+  color: @text_color;
+}
+
+/* ── Buttons ─────────────────────────────────────────── */
+button {
+  background-color: @elevated_color;
+  color: @text_color;
+  border: 1px solid @border_color;
+  border-radius: 6px;
+  padding: 5px 14px;
+  transition: background-color 120ms ease, border-color 120ms ease;
+  box-shadow: none;
+}
+button:hover {
+  background-color: @border_color;
+  border-color: alpha(@accent_color, 0.5);
+  color: @text_color;
+}
+button:active {
+  background-color: alpha(@accent_color, 0.15);
+  border-color: @accent_color;
+  color: @accent_color;
+}
+button.suggested-action {
+  background-color: @accent_color;
+  color: @bg_color;
+  border-color: @accent_color;
+  font-weight: 700;
+}
+button.suggested-action:hover {
+  background-color: #33ffaa;
+  border-color: #33ffaa;
+}
+button.destructive-action {
+  background-color: transparent;
+  color: #ff4466;
+  border-color: #ff4466;
+}
+button.destructive-action:hover {
+  background-color: alpha(#ff4466, 0.12);
+}
+button:disabled {
+  opacity: 0.4;
+}
+
+/* ── Text inputs ─────────────────────────────────────── */
+entry, spinbutton entry {
+  background-color: @elevated_color;
+  color: @text_color;
+  border: 1px solid @border_color;
+  border-radius: 6px;
+  padding: 5px 10px;
+  caret-color: @accent_color;
+  box-shadow: none;
+}
+entry:focus, spinbutton entry:focus {
+  border-color: @accent_color;
+  box-shadow: inset 0 0 0 1px alpha(@accent_color, 0.3);
+}
+entry placeholder { color: @muted_color; }
+
+/* ── Lists and trees ─────────────────────────────────── */
+treeview, listview, .view {
+  background-color: @surface_color;
+  color: @text_color;
+  border: none;
+}
+treeview header button {
+  background-color: @elevated_color;
+  border-bottom: 1px solid @border_color;
+  border-radius: 0;
+  color: @muted_color;
+  font-size: 0.8em;
+  padding: 3px 8px;
+}
+treeview:selected, listview row:selected, row:selected {
+  background-color: alpha(@accent_color, 0.12);
+  color: @text_color;
+  border-left: 2px solid @accent_color;
+}
+treeview:hover, listview row:hover {
+  background-color: @elevated_color;
+}
+
+/* ── Scrollbars — thin, flush, minimal ───────────────── */
+scrollbar {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+}
+scrollbar.vertical { min-width: 6px; }
+scrollbar.horizontal { min-height: 6px; }
+scrollbar slider {
+  background-color: @border_color;
+  border-radius: 3px;
+  border: none;
+  min-width: 6px;
+  min-height: 6px;
+  margin: 1px;
+}
+scrollbar slider:hover { background-color: @muted_color; }
+scrollbar slider:active { background-color: @accent_color; }
+scrollbar.overlay-indicator { opacity: 0; }
+scrollbar.overlay-indicator.dragging,
+scrollbar.overlay-indicator:hover { opacity: 1; }
+
+/* ── Menus ────────────────────────────────────────────── */
+menu {
+  background-color: @elevated_color;
+  border: 1px solid @border_color;
+  border-radius: 8px;
+  color: @text_color;
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+menuitem {
+  padding: 5px 12px;
+  border-radius: 5px;
+  color: @text_color;
+}
+menuitem:hover {
+  background-color: alpha(@accent_color, 0.1);
+  color: @text_color;
+}
+menuitem:disabled { color: @muted_color; }
+menu separator {
+  background-color: @border_color;
+  margin: 3px 8px;
+  min-height: 1px;
+}
+
+/* ── Popovers ─────────────────────────────────────────── */
+popover {
+  background-color: @elevated_color;
+  border: 1px solid @border_color;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+popover > arrow { background-color: @elevated_color; }
+
+/* ── Notebook tabs ────────────────────────────────────── */
+notebook > header {
+  background-color: @surface_color;
+  border-bottom: 1px solid @border_color;
+  padding: 0 4px;
+}
+notebook > header tab {
+  background-color: transparent;
+  color: @muted_color;
+  padding: 6px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+notebook > header tab:checked {
+  color: @text_color;
+  border-bottom-color: @accent_color;
+}
+notebook > header tab:hover:not(:checked) {
+  color: @text_color;
+  background-color: @elevated_color;
+}
+
+/* ── Progress / scale / switch ────────────────────────── */
+progressbar trough { background-color: @border_color; border-radius: 3px; }
+progressbar progress { background-color: @accent_color; border-radius: 3px; }
+
+scale trough { background-color: @border_color; border-radius: 3px; min-height: 4px; }
+scale fill   { background-color: @accent_color; border-radius: 3px; }
+scale slider {
+  background-color: @text_color;
+  border: 2px solid @accent_color;
+  border-radius: 50%;
+  min-width: 14px;
+  min-height: 14px;
+  box-shadow: none;
+}
+scale slider:hover { background-color: @accent_color; }
+
+switch {
+  background-color: @border_color;
+  border-radius: 12px;
+  border: 1px solid @border_color;
+  min-width: 40px;
+  min-height: 20px;
+}
+switch:checked { background-color: @accent_color; border-color: @accent_color; }
+switch slider {
+  background-color: @text_color;
+  border-radius: 50%;
+  min-width: 16px;
+  min-height: 16px;
+  margin: 2px;
+  box-shadow: none;
+}
+
+/* ── Tooltips ─────────────────────────────────────────── */
+tooltip {
+  background-color: @elevated_color;
+  color: @text_color;
+  border: 1px solid @border_color;
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 0.85em;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* ── Status bars ──────────────────────────────────────── */
+statusbar {
+  background-color: @surface_color;
+  border-top: 1px solid @border_color;
+  color: @muted_color;
+  font-size: 0.8em;
+  padding: 2px 8px;
+}
+
+/* ── File manager / Thunar specifics ─────────────────── */
+.path-bar button { border-radius: 4px; padding: 3px 8px; }
+.path-bar button:checked {
+  background-color: alpha(@accent_color, 0.1);
+  color: @accent_color;
+  border-color: alpha(@accent_color, 0.3);
+}
+.location-bar { background-color: @elevated_color; }
+
+/* ── Notifications ────────────────────────────────────── */
+.notification {
+  background-color: @elevated_color;
+  border: 1px solid @border_color;
+  border-radius: 8px;
+  color: @text_color;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+
+/* ── Check / radio buttons ────────────────────────────── */
+checkbutton check, radiobutton radio {
+  background-color: @elevated_color;
+  border: 1px solid @border_color;
+  border-radius: 3px;
+  min-width: 14px;
+  min-height: 14px;
+}
+checkbutton check:checked, radiobutton radio:checked {
+  background-color: @accent_color;
+  border-color: @accent_color;
+  color: @bg_color;
+}
+radiobutton radio { border-radius: 50%; }
+EOF
+
+# GTK2 fallback
+cat > /usr/share/themes/JX-OS/gtk-2.0/gtkrc << 'EOF'
+gtk-color-scheme = "bg_color:#0d0d14\nfg_color:#ffffff\nbase_color:#111118\ntext_color:#ffffff\nselected_bg_color:#00ff91\nselected_fg_color:#0d0d14\ntooltip_bg_color:#1a1a26\ntooltip_fg_color:#ffffff"
+style "default" {
+  bg[NORMAL]        = @bg_color
+  bg[PRELIGHT]      = "#1a1a26"
+  bg[SELECTED]      = @selected_bg_color
+  bg[INSENSITIVE]   = "#0d0d14"
+  bg[ACTIVE]        = "#111118"
+  fg[NORMAL]        = @fg_color
+  fg[PRELIGHT]      = @fg_color
+  fg[SELECTED]      = @selected_fg_color
+  fg[INSENSITIVE]   = "#8888a0"
+  fg[ACTIVE]        = @fg_color
+  base[NORMAL]      = @base_color
+  base[PRELIGHT]    = "#1a1a26"
+  base[SELECTED]    = @selected_bg_color
+  base[INSENSITIVE] = "#111118"
+  base[ACTIVE]      = "#1a1a26"
+  text[NORMAL]      = @text_color
+  text[PRELIGHT]    = @text_color
+  text[SELECTED]    = @selected_fg_color
+  text[INSENSITIVE] = "#8888a0"
+  text[ACTIVE]      = @text_color
+  engine "murrine" {
+    roundness = 3
+    glazestyle = 0
+    shadow_shades = { 0.0, 0.0 }
+    reliefstyle = 0
+    menubaritemstyle = 0
+    toolbarstyle = 0
+    colorize_scrollbar = FALSE
+  }
+}
+class "*" style "default"
+EOF
+
+# Theme index
+cat > /usr/share/themes/JX-OS/index.theme << 'EOF'
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=JX-OS
+Comment=JX-OS dark privacy theme
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=JX-OS
+IconTheme=Papirus-Dark
+CursorTheme=Adwaita
+ButtonLayout=close,minimize,maximize:
+EOF
+
+echo "[JX-OS] GTK theme installed."

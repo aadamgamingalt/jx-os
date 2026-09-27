@@ -1,0 +1,219 @@
+#!/bin/bash
+set -e
+
+echo "[JX-OS] Hardening Firefox ESR..."
+
+FIREFOX_DEFAULTS="/usr/lib/firefox-esr/browser/defaults/preferences"
+mkdir -p "$FIREFOX_DEFAULTS"
+
+# ============================================================
+# FIREFOX POLICIES (enterprise policy, applied system-wide)
+# ============================================================
+mkdir -p /usr/lib/firefox-esr/distribution
+cat > /usr/lib/firefox-esr/distribution/policies.json << 'EOF'
+{
+  "policies": {
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DisablePocket": true,
+    "DisableFirefoxAccounts": true,
+    "DisableFormHistory": true,
+    "DisablePasswordReveal": true,
+    "DontCheckDefaultBrowser": true,
+    "DisableAppUpdate": false,
+    "NoDefaultBookmarks": true,
+    "OfferToSaveLogins": false,
+    "PasswordManagerEnabled": false,
+    "DisableFeedbackCommands": true,
+    "DisableFirefoxScreenshots": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "Homepage": {
+      "URL": "about:blank",
+      "Locked": false,
+      "StartPage": "homepage"
+    },
+    "NewTabPage": false,
+    "SearchBar": "unified",
+    "Cookies": {
+      "Behavior": "reject-tracker-and-partition-foreign",
+      "BehaviorPrivateBrowsing": "reject-tracker-and-partition-foreign"
+    },
+    "EnableTrackingProtection": {
+      "Value": true,
+      "Locked": false,
+      "Cryptomining": true,
+      "Fingerprinting": true
+    },
+    "SanitizeOnShutdown": {
+      "Cache": true,
+      "Cookies": false,
+      "Downloads": false,
+      "FormData": true,
+      "History": false,
+      "Sessions": false,
+      "SiteSettings": false,
+      "OfflineApps": true,
+      "Locked": false
+    },
+    "Extensions": {
+      "Install": [
+        "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi"
+      ]
+    }
+  }
+}
+EOF
+
+# ============================================================
+# USER.JS - arkenfox-inspired hardening prefs
+# ============================================================
+PROFILE_TEMPLATE="/etc/skel/.mozilla/firefox/jxos.default"
+mkdir -p "$PROFILE_TEMPLATE"
+
+cat > "$PROFILE_TEMPLATE/user.js" << 'EOF'
+// JX-OS Firefox Hardening - user.js
+// Based on arkenfox user.js
+
+// === STARTUP ===
+user_pref("browser.startup.homepage", "about:blank");
+user_pref("browser.newtabpage.enabled", false);
+user_pref("browser.newtab.preload", false);
+user_pref("browser.startup.page", 0);
+user_pref("browser.shell.checkDefaultBrowser", false);
+
+// === TELEMETRY ===
+user_pref("datareporting.healthreport.uploadEnabled", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("browser.ping-centre.telemetry", false);
+user_pref("toolkit.telemetry.enabled", false);
+user_pref("toolkit.telemetry.unified", false);
+user_pref("toolkit.telemetry.server", "data:,");
+user_pref("toolkit.telemetry.archive.enabled", false);
+user_pref("toolkit.telemetry.newProfilePing.enabled", false);
+user_pref("toolkit.telemetry.shutdownPingSender.enabled", false);
+user_pref("toolkit.telemetry.updatePing.enabled", false);
+user_pref("toolkit.telemetry.bhrPing.enabled", false);
+user_pref("toolkit.telemetry.firstShutdownPing.enabled", false);
+user_pref("toolkit.telemetry.coverage.opt-out", true);
+user_pref("app.shield.optoutstudies.enabled", false);
+user_pref("app.normandy.enabled", false);
+user_pref("app.normandy.api_url", "");
+user_pref("breakpad.reportURL", "");
+user_pref("browser.tabs.crashReporting.sendReport", false);
+
+// === GEOLOCATION ===
+user_pref("geo.enabled", false);
+user_pref("geo.provider.network.url", "");
+user_pref("geo.provider.use_gpsd", false);
+user_pref("geo.provider.use_corelocation", false);
+user_pref("browser.region.network.url", "");
+user_pref("browser.region.update.enabled", false);
+
+// === SAFE BROWSING (sends URLs to Google) ===
+user_pref("browser.safebrowsing.malware.enabled", false);
+user_pref("browser.safebrowsing.phishing.enabled", false);
+user_pref("browser.safebrowsing.downloads.enabled", false);
+user_pref("browser.safebrowsing.downloads.remote.enabled", false);
+user_pref("browser.safebrowsing.downloads.remote.url", "");
+user_pref("browser.safebrowsing.provider.google4.updateURL", "");
+user_pref("browser.safebrowsing.provider.google4.reportURL", "");
+user_pref("browser.safebrowsing.reportMalwareMistakeURL", "");
+user_pref("browser.safebrowsing.reportPhishMistakeURL", "");
+user_pref("browser.safebrowsing.reportPhishURL", "");
+
+// === NETWORK ===
+user_pref("network.prefetch-next", false);
+user_pref("network.dns.disablePrefetch", true);
+user_pref("network.dns.disablePrefetchFromHTTPS", true);
+user_pref("network.predictor.enabled", false);
+user_pref("network.predictor.enable-prefetch", false);
+user_pref("network.http.speculative-parallel-limit", 0);
+user_pref("browser.places.speculativeConnect.enabled", false);
+user_pref("network.captive-portal-service.enabled", false);
+user_pref("network.connectivity-service.enabled", false);
+
+// === WEBRTC - block IP leaks ===
+user_pref("media.peerconnection.enabled", false);
+user_pref("media.peerconnection.ice.proxy_only_if_behind_proxy", true);
+user_pref("media.peerconnection.ice.default_address_only", true);
+
+// === FINGERPRINTING ===
+user_pref("privacy.resistFingerprinting", true);
+user_pref("privacy.resistFingerprinting.block_mozAddonManager", true);
+user_pref("browser.display.use_system_colors", false);
+user_pref("widget.non-native-theme.enabled", true);
+user_pref("browser.link.open_newwindow", 3);
+user_pref("browser.link.open_newwindow.restriction", 0);
+user_pref("privacy.window.maxInnerWidth", 1600);
+user_pref("privacy.window.maxInnerHeight", 900);
+user_pref("webgl.disabled", true);
+user_pref("dom.event.clipboardevents.enabled", false);
+user_pref("media.navigator.enabled", false);
+user_pref("media.video_stats.enabled", false);
+user_pref("media.getusermedia.screensharing.enabled", false);
+user_pref("media.getusermedia.browser.enabled", false);
+user_pref("media.getusermedia.audiocapture.enabled", false);
+user_pref("dom.battery.enabled", false);
+user_pref("dom.vibrator.enabled", false);
+user_pref("dom.gamepad.enabled", false);
+user_pref("dom.vr.enabled", false);
+
+// === TRACKING PROTECTION ===
+user_pref("privacy.trackingprotection.enabled", true);
+user_pref("privacy.trackingprotection.pbmode.enabled", true);
+user_pref("privacy.trackingprotection.cryptomining.enabled", true);
+user_pref("privacy.trackingprotection.fingerprinting.enabled", true);
+user_pref("privacy.firstparty.isolate", true);
+user_pref("network.cookie.cookieBehavior", 5);
+user_pref("network.cookie.thirdparty.sessionOnly", true);
+user_pref("network.cookie.thirdparty.nonsecureSessionOnly", true);
+
+// === HTTPS ===
+user_pref("dom.security.https_only_mode", true);
+user_pref("dom.security.https_only_mode_send_http_background_request", false);
+user_pref("network.http.referer.XOriginPolicy", 2);
+user_pref("network.http.referer.XOriginTrimmingPolicy", 2);
+
+// === PASSWORDS / AUTOFILL ===
+user_pref("signon.rememberSignons", false);
+user_pref("signon.autofillForms", false);
+user_pref("signon.formlessCapture.enabled", false);
+user_pref("browser.formfill.enable", false);
+
+// === CACHE / HISTORY ===
+user_pref("browser.cache.disk.enable", false);
+user_pref("browser.privatebrowsing.autostart", false);
+user_pref("browser.sessionstore.max_tabs_undo", 0);
+
+// === UI TWEAKS ===
+user_pref("browser.toolbars.bookmarks.visibility", "never");
+user_pref("browser.uidensity", 1);
+user_pref("browser.compactmode.show", true);
+user_pref("browser.tabs.warnOnClose", false);
+user_pref("full-screen-api.warning.timeout", 0);
+
+// === MISC ===
+user_pref("extensions.pocket.enabled", false);
+user_pref("extensions.screenshots.disabled", true);
+user_pref("identity.fxaccounts.enabled", false);
+user_pref("reader.parse-on-load.enabled", false);
+EOF
+
+# Firefox profile ini
+cat > "/etc/skel/.mozilla/firefox/profiles.ini" << 'EOF'
+[Install]
+DefaultProfile=jxos.default
+
+[Profile0]
+Name=default
+IsRelative=1
+Path=jxos.default
+Default=1
+
+[General]
+StartWithLastProfile=1
+Version=2
+EOF
+
+echo "[JX-OS] Firefox hardened."

@@ -1,0 +1,60 @@
+# === JX-OS Base & Hardening Packages ===
+
+# System essentials
+linux-image-amd64
+linux-headers-amd64
+firmware-linux
+firmware-linux-nonfree
+locales
+sudo
+curl
+wget
+git
+unzip
+htop
+neofetch
+
+# Network privacy
+tor
+torbrowser-launcher
+ufw
+nftables
+macchanger
+proxychains4
+wireguard
+wireguard-tools
+openresolv
+dnscrypt-proxy
+
+# Physical security
+usbguard
+cryptsetup
+cryptsetup-bin
+
+# System hardening
+apparmor
+apparmor-profiles
+apparmor-utils
+libpam-pwquality
+auditd
+aide
+
+# Anonymisation tools
+bleachbit
+secure-delete
+mat2
+
+# Utilities
+rsync
+lsof
+net-tools
+iproute2
+iptables
+fail2ban
+rkhunter
+chkrootkit
+
+# Compression
+p7zip-full
+zip
+unrar-free

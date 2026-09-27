@@ -1,0 +1,41 @@
+#!/bin/bash
+set -e
+
+echo "[JX-OS] Configuring LightDM greeter..."
+
+# ============================================================
+# LIGHTDM MAIN CONFIG
+# ============================================================
+cat > /etc/lightdm/lightdm.conf << 'EOF'
+[LightDM]
+greeter-session=lightdm-gtk-greeter
+sessions-directory=/usr/share/lightdm/sessions:/usr/share/xsessions
+user-authority-in-system-dir=false
+
+[Seat:*]
+greeter-session=lightdm-gtk-greeter
+session-wrapper=/etc/lightdm/Xsession
+autologin-user=
+autologin-user-timeout=0
+EOF
+
+# ============================================================
+# GTK GREETER - JX-OS themed login screen
+# ============================================================
+cat > /etc/lightdm/lightdm-gtk-greeter.conf << 'EOF'
+[greeter]
+theme-name=JX-OS
+icon-theme-name=Papirus-Dark
+background=/usr/share/backgrounds/jxos/wallpaperdefault.png
+user-background=false
+font-name=JetBrains Mono Bold 11
+indicators=~host;~spacer;~clock;~spacer;~power
+clock-format=%H:%M  |  %A %d %B %Y
+hide-user-image=false
+default-user-image=/usr/share/jxos/logos/logo-256.png
+position=50%,center 50%,center
+panel-position=top
+screensaver-timeout=60
+EOF
+
+echo "[JX-OS] LightDM configured."

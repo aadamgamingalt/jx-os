@@ -1,0 +1,289 @@
+#!/bin/bash
+set -e
+
+echo "[JX-OS] Installing JX-OS system apps..."
+
+# ============================================================
+# ABOUT APP - Python/Gtk app using JX-OS branding
+# ============================================================
+mkdir -p /usr/share/applications
+mkdir -p /usr/local/bin
+
+cat > /usr/local/bin/jxos-about << 'PYEOF'
+#!/usr/bin/env python3
+"""JX-OS About Dialog"""
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
+import subprocess
+import os
+
+ACCENT   = "#00ff91"
+BG       = "#0d0d14"
+SURFACE  = "#111118"
+ELEVATED = "#1a1a26"
+BORDER   = "#2a2a38"
+MUTED    = "#8888a0"
+TEXT     = "#ffffff"
+
+CSS = f"""
+window {{
+  background-color: {BG};
+}}
+.about-card {{
+  background-color: {SURFACE};
+  border-radius: 12px;
+  border: 1px solid {BORDER};
+  padding: 32px;
+}}
+.title-large {{
+  color: {TEXT};
+  font-family: "JetBrains Mono";
+  font-size: 22px;
+  font-weight: bold;
+}}
+.subtitle {{
+  color: {ACCENT};
+  font-family: "JetBrains Mono";
+  font-size: 12px;
+  letter-spacing: 2px;
+}}
+.version-badge {{
+  background-color: {ELEVATED};
+  border: 1px solid {BORDER};
+  border-radius: 20px;
+  padding: 4px 16px;
+  color: {MUTED};
+  font-family: "JetBrains Mono";
+  font-size: 11px;
+}}
+.info-row {{
+  background-color: {ELEVATED};
+  border-radius: 8px;
+  border: 1px solid {BORDER};
+  padding: 12px 16px;
+  margin: 2px 0;
+}}
+.info-label {{
+  color: {MUTED};
+  font-family: "JetBrains Mono";
+  font-size: 10px;
+  letter-spacing: 1px;
+}}
+.info-value {{
+  color: {TEXT};
+  font-family: "JetBrains Mono";
+  font-size: 11px;
+  font-weight: bold;
+}}
+.accent-text {{
+  color: {ACCENT};
+  font-family: "JetBrains Mono";
+  font-size: 11px;
+}}
+.close-btn {{
+  background-color: {ELEVATED};
+  border: 1px solid {BORDER};
+  border-radius: 8px;
+  color: {MUTED};
+  font-family: "JetBrains Mono";
+  font-size: 11px;
+  padding: 8px 24px;
+  transition: all 150ms ease;
+}}
+.close-btn:hover {{
+  border-color: {ACCENT};
+  color: {ACCENT};
+  background-color: {BORDER};
+}}
+"""
+
+def get_kernel():
+    try:
+        return subprocess.check_output(["uname", "-r"], text=True).strip()
+    except:
+        return "unknown"
+
+def get_cpu():
+    try:
+        with open("/proc/cpuinfo") as f:
+            for line in f:
+                if line.startswith("model name"):
+                    return line.split(":")[1].strip()
+    except:
+        pass
+    return "unknown"
+
+def get_mem():
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemTotal"):
+                    kb = int(line.split()[1])
+                    return f"{kb // 1024} MB"
+    except:
+        pass
+    return "unknown"
+
+class AboutWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="About JX-OS")
+        self.set_default_size(420, 560)
+        self.set_resizable(False)
+        self.set_border_width(24)
+
+        # Apply CSS
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS.encode())
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.add(outer)
+
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        card.get_style_context().add_class("about-card")
+        outer.pack_start(card, True, True, 0)
+
+        # Logo
+        logo_path = "/usr/share/jxos/logos/logo-256.png"
+        if os.path.exists(logo_path):
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(logo_path, 64, 64, True)
+            logo = Gtk.Image.new_from_pixbuf(pixbuf)
+            logo.set_margin_bottom(8)
+            card.pack_start(logo, False, False, 0)
+
+        # Name
+        title = Gtk.Label(label="JX-OS")
+        title.get_style_context().add_class("title-large")
+        title.set_halign(Gtk.Align.CENTER)
+        card.pack_start(title, False, False, 0)
+
+        # Subtitle
+        sub = Gtk.Label(label="PRIVACY · SECURITY · FREEDOM")
+        sub.get_style_context().add_class("subtitle")
+        sub.set_halign(Gtk.Align.CENTER)
+        card.pack_start(sub, False, False, 0)
+
+        # Version badge
+        ver = Gtk.Label(label="Version 0.1.0  |  Developer Beta")
+        ver.get_style_context().add_class("version-badge")
+        ver.set_halign(Gtk.Align.CENTER)
+        card.pack_start(ver, False, False, 8)
+
+        # Divider
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        card.pack_start(sep, False, False, 0)
+
+        # Info rows
+        info = [
+            ("KERNEL",    get_kernel()),
+            ("CPU",       get_cpu()[:42] + ("..." if len(get_cpu()) > 42 else "")),
+            ("MEMORY",    get_mem()),
+            ("BASE",      "Debian GNU/Linux 12 (Bookworm)"),
+            ("DESKTOP",   "XFCE 4"),
+            ("DEVELOPER", "Voidagon Studios"),
+        ]
+
+        for label, value in info:
+            row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            row.get_style_context().add_class("info-row")
+            lbl = Gtk.Label(label=label)
+            lbl.get_style_context().add_class("info-label")
+            lbl.set_halign(Gtk.Align.START)
+            val = Gtk.Label(label=value)
+            val.get_style_context().add_class("info-value")
+            val.set_halign(Gtk.Align.START)
+            val.set_line_wrap(True)
+            row.pack_start(lbl, False, False, 0)
+            row.pack_start(val, False, False, 0)
+            card.pack_start(row, False, False, 0)
+
+        # Privacy status
+        status_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        status_row.get_style_context().add_class("info-row")
+        status_lbl = Gtk.Label(label="PRIVACY STATUS")
+        status_lbl.get_style_context().add_class("info-label")
+        status_lbl.set_halign(Gtk.Align.START)
+        status_val = Gtk.Label(label="● HARDENED")
+        status_val.get_style_context().add_class("accent-text")
+        status_row.pack_start(status_lbl, True, True, 0)
+        status_row.pack_start(status_val, False, False, 0)
+        card.pack_start(status_row, False, False, 0)
+
+        # Close button
+        close = Gtk.Button(label="Close")
+        close.get_style_context().add_class("close-btn")
+        close.connect("clicked", lambda _: self.destroy())
+        close.set_halign(Gtk.Align.CENTER)
+        card.pack_start(close, False, False, 8)
+
+        self.show_all()
+
+win = AboutWindow()
+win.connect("destroy", Gtk.main_quit)
+Gtk.main()
+PYEOF
+
+chmod +x /usr/local/bin/jxos-about
+
+# Desktop entry
+cat > /usr/share/applications/jxos-about.desktop << 'EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=About JX-OS
+Comment=Information about this system
+Exec=jxos-about
+Icon=/usr/share/jxos/logos/logo-256.png
+Terminal=false
+Categories=System;
+StartupNotify=false
+EOF
+
+# ============================================================
+# PRIVACY INDICATOR - systray applet script
+# ============================================================
+cat > /usr/local/bin/jxos-privacy-check << 'EOF'
+#!/bin/bash
+# Quick privacy status check - run from terminal
+echo ""
+echo "  JX-OS Privacy Status"
+echo "  ===================="
+
+check() {
+  if eval "$2" &>/dev/null; then
+    echo "  ✓ $1"
+  else
+    echo "  ✗ $1"
+  fi
+}
+
+check "Firewall (UFW)"         "ufw status | grep -q 'Status: active'"
+check "AppArmor"               "systemctl is-active apparmor"
+check "USBGuard"               "systemctl is-active usbguard"
+check "Tor"                    "systemctl is-active tor"
+check "dnscrypt-proxy"         "systemctl is-active dnscrypt-proxy"
+check "Hostname randomised"    "hostname | grep -q 'jxos-'"
+check "Swap disabled"          "[ $(swapon --show | wc -l) -eq 0 ]"
+echo ""
+EOF
+chmod +x /usr/local/bin/jxos-privacy-check
+
+cat > /usr/share/applications/jxos-privacy-check.desktop << 'EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=JX-OS Privacy Check
+Comment=View privacy and security status
+Exec=xfce4-terminal -e jxos-privacy-check
+Icon=security-high
+Terminal=false
+Categories=System;Security;
+StartupNotify=false
+EOF
+
+echo "[JX-OS] System apps installed."

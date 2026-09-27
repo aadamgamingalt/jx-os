@@ -1,0 +1,18 @@
+# live-build output
+config/.build/
+config/cache/
+config/chroot/
+config/binary/
+config/local/
+*.iso
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

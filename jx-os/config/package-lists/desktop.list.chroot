@@ -1,0 +1,62 @@
+# === JX-OS Desktop Packages ===
+# Kept lean. No office suite, no extra games, no recommended bloat.
+
+# XFCE core (only what's needed)
+xfce4
+xfce4-terminal
+xfce4-power-manager
+xfce4-screensaver
+xfce4-notifyd
+xfce4-taskmanager
+xfce4-whiskermenu-plugin
+xfce4-pulseaudio-plugin
+xfce4-clipman-plugin
+
+# Display
+lightdm
+lightdm-gtk-greeter
+xorg
+xserver-xorg
+xserver-xorg-input-all
+xserver-xorg-video-all
+picom
+
+# Theming
+gtk2-engines-murrine
+papirus-icon-theme
+fonts-jetbrains-mono
+fonts-noto
+adwaita-icon-theme-full
+
+# Core apps only
+firefox-esr
+thunar
+thunar-volman
+thunar-archive-plugin
+xfce4-terminal
+mousepad
+ristretto
+file-roller
+pavucontrol
+network-manager
+network-manager-gnome
+
+# Audio (minimal)
+pipewire
+pipewire-pulse
+wireplumber
+alsa-utils
+
+# Python (for jxos-about app)
+python3
+python3-gi
+gir1.2-gtk-3.0
+
+# Installer
+calamares
+calamares-settings-debian
+
+# Live system
+live-boot
+live-config
+live-config-systemd
