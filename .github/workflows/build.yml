@@ -63,7 +63,6 @@ jobs:
             --iso-application "JX-OS" \
             --apt-options "--yes --no-install-recommends" \
             --archive-areas "main contrib non-free non-free-firmware" \
-            --bootloaders "grub-efi,syslinux"
 
       - name: Build ISO
         run: |
